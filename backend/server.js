@@ -64,26 +64,35 @@ app.get('/api/events', async (req, res) => {
 /**
  * POST /api/results
  * (Admin Only) Adds a new event result to the database.
+ * Allows null for missing places.
  */
 app.post('/api/results', async (req, res) => {
   const { event_name, event_type, first_place_id, second_place_id, third_place_id } = req.body;
 
-  // Validation
-  if (!event_name || !event_type || !first_place_id || !second_place_id || !third_place_id) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  // Basic validation
+  if (!event_name || !event_type) {
+    return res.status(400).json({ error: 'Event name and type are required.' });
   }
 
-  const { data, error } = await supabaseAdmin.from('results').insert([
-    { event_name, event_type, first_place_id, second_place_id, third_place_id }
-  ]);
+  // Prepare payload (convert empty strings to null)
+  const payload = {
+    event_name,
+    event_type,
+    first_place_id: first_place_id || null,
+    second_place_id: second_place_id || null,
+    third_place_id: third_place_id || null,
+  };
+
+  const { data, error } = await supabaseAdmin.from('results').insert([payload]);
 
   if (error) {
     console.error('Supabase insert error:', error);
     return res.status(500).json({ error: error.message });
   }
 
-  res.status(201).json(data);
+  res.status(201).json({ message: 'Result added successfully', data });
 });
+
 
 /**
  * GET /api/leaderboard
