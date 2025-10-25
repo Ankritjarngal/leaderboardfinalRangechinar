@@ -1,144 +1,211 @@
-<script>
-    // --- Configuration ---
-    const API_BASE_URL = 'https://leaderboardfinalrangechinar.onrender.com'; // Your backend URL
-    
-    // --- DOM Elements ---
-    const eventSelect = document.getElementById('event-select');
-    const otherEventGroup = document.getElementById('other-event-group');
-    const otherEventName = document.getElementById('other-event-name');
-    const eventTypeGroup = document.getElementById('event-type-group');
-    const eventTypeSelect = document.getElementById('event-type-select');
-    
-    const firstPlaceSelect = document.getElementById('first-place-select');
-    const secondPlaceSelect = document.getElementById('second-place-select');
-    const thirdPlaceSelect = document.getElementById('third-place-select');
-    
-    const form = document.getElementById('add-result-form');
-    const statusMessage = document.getElementById('status-message');
-
-    let predefinedEvents = []; // To store event data
-
-    // --- Functions ---
-
-    async function loadInstitutes() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/institutes`);
-            const institutes = await response.json();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Panel - Add Result</h1>
+        
+        <form id="add-result-form" class="admin-form">
             
-            const selects = [firstPlaceSelect, secondPlaceSelect, thirdPlaceSelect];
-            selects.forEach(sel => {
-                sel.innerHTML = '<option value="" selected>-- None --</option>'; // Allow null
-            });
+            <h3>Event Details</h3>
+            <div class="form-group">
+                <label for="event-select">Event</label>
+                <select id="event-select" name="event-select">
+                    <option value="" selected disabled>Loading events...</option>
+                    <!-- Predefined events will be loaded here -->
+                    <option value="other">--- Other Event ---</option>
+                </select>
+            </div>
 
-            institutes.forEach(inst => {
-                const optionHtml = `<option value="${inst.id}">${inst.name}</option>`;
-                selects.forEach(sel => sel.innerHTML += optionHtml);
-            });
+            <div class="form-group" id="other-event-group" style="display: none;">
+                <label for="other-event-name">"Other" Event Name</label>
+                <input type="text" id="other-event-name" name="other-event-name">
+            </div>
 
-        } catch (error) {
-            console.error('Error loading institutes:', error);
-            firstPlaceSelect.innerHTML = '<option value="">Error loading</option>';
+            <div class="form-group" id="event-type-group">
+                <label for="event-type-select">Event Type</label>
+                <select id="event-type-select" name="event-type-select">
+                    <option value="INDIVIDUAL">Individual</option>
+                    <option value="GROUP">Group</option>
+                </select>
+            </div>
+
+            <h3>Winners</h3>
+            <div class="form-group">
+                <label for="first-place-select">1st Place</label>
+                <select id="first-place-select" name="first-place-select" required>
+                    <option value="" selected disabled>Loading institutes...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="second-place-select">2nd Place</label>
+                <select id="second-place-select" name="second-place-select" required>
+                    <option value="" selected disabled>Loading institutes...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="third-place-select">3rd Place</label>
+                <select id="third-place-select" name="third-place-select" required>
+                    <option value="" selected disabled>Loading institutes...</option>
+                </select>
+            </div>
+
+            <button type="submit" class="submit-btn">Submit Result</button>
+            <div id="status-message"></div>
+        </form>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const API_BASE_URL = 'https://leaderboardfinalrangechinar.onrender.com'; // Your backend URL
+        
+        // --- DOM Elements ---
+        const eventSelect = document.getElementById('event-select');
+        const otherEventGroup = document.getElementById('other-event-group');
+        const otherEventName = document.getElementById('other-event-name');
+        const eventTypeGroup = document.getElementById('event-type-group');
+        const eventTypeSelect = document.getElementById('event-type-select');
+        
+        const firstPlaceSelect = document.getElementById('first-place-select');
+        const secondPlaceSelect = document.getElementById('second-place-select');
+        const thirdPlaceSelect = document.getElementById('third-place-select');
+        
+        const form = document.getElementById('add-result-form');
+        const statusMessage = document.getElementById('status-message');
+    
+        let predefinedEvents = []; // To store event data
+    
+        // --- Functions ---
+    
+        async function loadInstitutes() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/institutes`);
+                const institutes = await response.json();
+                
+                const selects = [firstPlaceSelect, secondPlaceSelect, thirdPlaceSelect];
+                selects.forEach(sel => {
+                    sel.innerHTML = '<option value="" selected>-- None --</option>'; // Allow null
+                });
+    
+                institutes.forEach(inst => {
+                    const optionHtml = `<option value="${inst.id}">${inst.name}</option>`;
+                    selects.forEach(sel => sel.innerHTML += optionHtml);
+                });
+    
+            } catch (error) {
+                console.error('Error loading institutes:', error);
+                firstPlaceSelect.innerHTML = '<option value="">Error loading</option>';
+            }
         }
-    }
-
-    async function loadEvents() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/events`);
-            predefinedEvents = await response.json();
+    
+        async function loadEvents() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/events`);
+                predefinedEvents = await response.json();
+                
+                eventSelect.innerHTML = '<option value="" selected disabled>Select an event...</option>';
+                predefinedEvents.forEach(event => {
+                    eventSelect.innerHTML += `<option value="${event.id}">${event.name} (${event.type})</option>`;
+                });
+                eventSelect.innerHTML += '<option value="other">--- Other Event ---</option>';
+    
+            } catch (error) {
+                console.error('Error loading events:', error);
+                eventSelect.innerHTML = '<option value="">Error loading</option>';
+            }
+        }
+    
+        eventSelect.addEventListener('change', () => {
+            const selectedValue = eventSelect.value;
             
-            eventSelect.innerHTML = '<option value="" selected disabled>Select an event...</option>';
-            predefinedEvents.forEach(event => {
-                eventSelect.innerHTML += `<option value="${event.id}">${event.name} (${event.type})</option>`;
-            });
-            eventSelect.innerHTML += '<option value="other">--- Other Event ---</option>';
-
-        } catch (error) {
-            console.error('Error loading events:', error);
-            eventSelect.innerHTML = '<option value="">Error loading</option>';
-        }
-    }
-
-    eventSelect.addEventListener('change', () => {
-        const selectedValue = eventSelect.value;
-        
-        if (selectedValue === 'other') {
-            otherEventGroup.style.display = 'block';
-            eventTypeGroup.style.display = 'block';
-            eventTypeSelect.value = 'INDIVIDUAL';
-        } else if (selectedValue) {
-            const selectedEvent = predefinedEvents.find(e => e.id == selectedValue);
-            if (selectedEvent) {
-                eventTypeSelect.value = selectedEvent.type;
-                eventTypeGroup.style.display = 'none';
+            if (selectedValue === 'other') {
+                otherEventGroup.style.display = 'block';
+                eventTypeGroup.style.display = 'block';
+                eventTypeSelect.value = 'INDIVIDUAL';
+            } else if (selectedValue) {
+                const selectedEvent = predefinedEvents.find(e => e.id == selectedValue);
+                if (selectedEvent) {
+                    eventTypeSelect.value = selectedEvent.type;
+                    eventTypeGroup.style.display = 'none';
+                }
+                otherEventGroup.style.display = 'none';
+                otherEventName.value = '';
             }
-            otherEventGroup.style.display = 'none';
-            otherEventName.value = '';
-        }
-    });
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        let eventName, eventType;
-        const selectedEventValue = eventSelect.value;
-
-        if (selectedEventValue === 'other') {
-            eventName = otherEventName.value;
-            eventType = eventTypeSelect.value;
-        } else {
-            const selectedEvent = predefinedEvents.find(e => e.id == selectedEventValue);
-            eventName = selectedEvent.name;
-            eventType = selectedEvent.type;
-        }
-
-        const payload = {
-            event_name: eventName,
-            event_type: eventType,
-            first_place_id: firstPlaceSelect.value || null,
-            second_place_id: secondPlaceSelect.value || null,
-            third_place_id: thirdPlaceSelect.value || null,
-        };
-
-        if (!payload.event_name) {
-            showStatus('Please fill out the event name.', true);
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/results`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Server error');
+        });
+    
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            let eventName, eventType;
+            const selectedEventValue = eventSelect.value;
+    
+            if (selectedEventValue === 'other') {
+                eventName = otherEventName.value;
+                eventType = eventTypeSelect.value;
+            } else {
+                const selectedEvent = predefinedEvents.find(e => e.id == selectedEventValue);
+                eventName = selectedEvent.name;
+                eventType = selectedEvent.type;
             }
-
-            showStatus('Result added successfully!', false);
-            form.reset();
-            otherEventGroup.style.display = 'none';
-            eventTypeGroup.style.display = 'block';
-
-        } catch (error) {
-            console.error('Error submitting result:', error);
-            showStatus(`Error: ${error.message}`, true);
+    
+            const payload = {
+                event_name: eventName,
+                event_type: eventType,
+                first_place_id: firstPlaceSelect.value || null,
+                second_place_id: secondPlaceSelect.value || null,
+                third_place_id: thirdPlaceSelect.value || null,
+            };
+    
+            if (!payload.event_name) {
+                showStatus('Please fill out the event name.', true);
+                return;
+            }
+    
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/results`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+    
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Server error');
+                }
+    
+                showStatus('Result added successfully!', false);
+                form.reset();
+                otherEventGroup.style.display = 'none';
+                eventTypeGroup.style.display = 'block';
+    
+            } catch (error) {
+                console.error('Error submitting result:', error);
+                showStatus(`Error: ${error.message}`, true);
+            }
+        });
+    
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.className = isError ? 'error' : 'success';
+            statusMessage.style.display = 'block';
+            
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 4000);
         }
-    });
-
-    function showStatus(message, isError = false) {
-        statusMessage.textContent = message;
-        statusMessage.className = isError ? 'error' : 'success';
-        statusMessage.style.display = 'block';
-        
-        setTimeout(() => {
-            statusMessage.style.display = 'none';
-        }, 4000);
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        loadInstitutes();
-        loadEvents();
-    });
-</script>
+    
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInstitutes();
+            loadEvents();
+        });
+    </script>
+    
+</body>
+</html>
