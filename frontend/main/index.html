@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Event Leaderboard</title>
+    <!-- 1. Import Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 2. Import Supabase-JS library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- 3. Custom Styles and Animations -->
+    <style>
+        /* Optional: Use a nice font like Inter */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Apply a subtle gradient background */
+            background-color: #111827; /* Dark gray fallback */
+            background-image: linear-gradient(145deg, #111827 0%, #1f2937 100%);
+        }
+
+        /* Live indicator dot */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #ef4444; /* red-500 */
+            border-radius: 50%;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Animation for rank changes */
+        @keyframes highlight-row {
+            0%, 100% { background-color: transparent; }
+            50% { background-color: rgba(59, 130, 246, 0.2); } /* blue-500 with opacity */
+        }
+        .rank-change {
+            animation: highlight-row 1.5s ease-in-out;
+        }
+
+        /* Animations for score changes */
+        @keyframes flash-green {
+            0%, 100% { color: inherit; transform: scale(1); }
+            50% { color: #22c55e; transform: scale(1.1); } /* green-500 */
+        }
+        @keyframes flash-red {
+            0%, 100% { color: inherit; transform: scale(1); }
+            50% { color: #ef4444; transform: scale(1.1); } /* red-500 */
+        }
+        .flash-up {
+            animation: flash-green 1s ease-out;
+        }
+        .flash-down {
+            animation: flash-red 1s ease-out;
+        }
+
+        /* Responsive Table: Hide on small, show on large */
+        .desktop-cell { display: none; }
+        @media (min-width: 1024px) {
+            .desktop-cell { display: table-cell; }
+        }
+        /* Mobile-first: Stacked rows */
+        @media (max-width: 1023px) {
+            .responsive-table thead {
+                display: none;
+            }
+            .responsive-table tr {
+                display: block;
+                margin-bottom: 1rem;
+                border: 1px solid #374151; /* gray-700 */
+                border-radius: 0.5rem;
+                overflow: hidden;
+            }
+            .responsive-table td {
+                display: block;
+                text-align: right;
+                padding-left: 50%;
+                position: relative;
+                border-bottom: 1px solid #374151; /* gray-700 */
+            }
+            .responsive-table td:last-child {
+                border-bottom: 0;
+            }
+            .responsive-table td::before {
+                content: attr(data-label);
+                position: absolute;
+                left: 0.75rem;
+                padding-right: 0.75rem;
+                text-align: left;
+                font-weight: 600;
+                text-transform: uppercase;
+                font-size: 0.75rem;
+                color: #9ca3af; /* gray-400 */
+            }
+            /* Special handling for the main cells */
+            .responsive-table .rank-cell,
+            .responsive-table .name-cell {
+                padding-left: 0.75rem;
+                text-align: left;
+                font-size: 1.25rem;
+            }
+            .responsive-table .rank-cell {
+                background-color: #374151; /* gray-700 */
+                font-weight: 800;
+                font-size: 1.5rem;
+                color: white;
+            }
+            .responsive-table .name-cell {
+                font-weight: 600;
+                color: white;
+            }
+             .responsive-table .rank-cell::before,
+             .responsive-table .name-cell::before {
+                display: none; /* Hide labels for rank and name */
+            }
+        }
+    </style>
+</head>
+
+<body class="text-gray-200">
+
+    <div class="container mx-auto max-w-7xl px-4 py-8">
+        
+        <div class="flex items-center justify-between mb-4">
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                Event Leaderboard
+            </h1>
+            <div id="live-indicator" class="flex items-center gap-2 px-3 py-1 bg-gray-700 rounded-full" style="display: none;">
+                <div class="live-dot"></div>
+                <span class="text-sm font-medium text-red-400">LIVE</span>
+            </div>
+        </div>
+        
+        <main class="leaderboard mt-6">
+            <div class="overflow-x-auto shadow-2xl rounded-lg">
+                <table classs="w-full responsive-table">
+                    <thead class="bg-gray-800 text-xs text-gray-400 uppercase tracking-wider">
+                        <tr>
+                            <th rowspan="2" class="px-6 py-4">Ranking</th>
+                            <th rowspan="2" class="px-6 py-4 text-left">Institute Name</th>
+                            <th colspan="3" class="px-6 py-4 border-b border-l border-gray-700">Individual Events</th>
+                            <th colspan="3" class="px-6 py-4 border-b border-l border-gray-700">Group Events</th>
+                            <th rowspan="2" class_s="px-6 py-4">Total</th>
+                        </tr>
+                        <tr class="bg-gray-800">
+                            <th class="px-6 py-3 border-l border-gray-700">🥇 Gold</th>
+                            <th class="px-6 py-3">🥈 Silver</th>
+                            <th class="px-6 py-3">🥉 Bronze</th>
+                            <th class="px-6 py-3 border-l border-gray-700">🥇 Gold</th>
+                            <th class="px-6 py-3">🥈 Silver</th>
+                            <th class="px-6 py-3">🥉 Bronze</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body" class="bg-gray-900 divide-y divide-gray-700">
+                        <!-- Data will be loaded here by script.js -->
+                        <tr>
+                            <td colspan="9" class="text-center px-6 py-10 text-gray-400">
+                                <div class="flex justify-center items-center gap-2">
+                                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Loading live leaderboard...
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const API_BASE_URL = 'http://localhost:3001'; // Your backend URL
+        const leaderboardBody = document.getElementById('leaderboard-body');
+        const liveIndicator = document.getElementById('live-indicator');
+        let supabase = null;
+        
+        // ** Store the previous state for animation **
+        let oldLeaderboardData = [];
+
+        // --- Functions ---
+
+        /**
+         * Fetches the calculated leaderboard from our backend and renders the table.
+         */
+        async function fetchAndRenderLeaderboard() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/leaderboard`);
+                if (!response.ok) throw new Error('Failed to fetch leaderboard');
+                
+                const leaderboard = await response.json();
+                renderTable(leaderboard);
+            } catch (error) {
+                console.error('Error fetching leaderboard:', error);
+                leaderboardBody.innerHTML = `<tr><td colspan="9" class="text-center px-6 py-10 text-red-400">Error loading data. Is the backend server running?</td></tr>`;
+            }
+        }
+
+        /**
+         * Renders the leaderboard data into the table body with animations.
+         */
+        function renderTable(leaderboard) {
+            if (leaderboard.length === 0) {
+                leaderboardBody.innerHTML = `<tr><td colspan="9" class="text-center px-6 py-10 text-gray-400">No data yet.</td></tr>`;
+                return;
+            }
+
+            // Create a map of the old data for easy lookup
+            const oldDataMap = new Map(oldLeaderboardData.map((inst, i) => [inst.name, { ...inst, oldRank: i }]));
+            
+            let html = '';
+            leaderboard.forEach((institute, newRank) => {
+                const oldInst = oldDataMap.get(institute.name);
+                
+                let rowClass = 'transition-all duration-500';
+                let totalClass = 'font-bold text-lg';
+                
+                // Check for rank or score changes
+                if (oldInst) {
+                    if (oldInst.oldRank !== newRank) {
+                        rowClass += ' rank-change'; // Apply highlight animation
+                    }
+                    if (institute.total > oldInst.total) {
+                        totalClass += ' flash-up'; // Apply green flash animation
+                    } else if (institute.total < oldInst.total) {
+                        totalClass += ' flash-down'; // Apply red flash animation
+                    }
+                }
+
+                // Add special classes for top 3
+                let rankCellClass = 'rank-cell text-lg font-bold text-white';
+                if (newRank === 0) rankCellClass += ' bg-yellow-500';
+                else if (newRank === 1) rankCellClass += ' bg-gray-400';
+                else if (newRank === 2) rankCellClass += ' bg-yellow-700';
+
+                html += `
+                    <tr class="${rowClass}">
+                        <td data-label="Rank" class="${rankCellClass} px-6 py-4 text-center">${newRank + 1}</td>
+                        <td data-label="Name" class="name-cell px-6 py-4 text-left font-medium text-white">${institute.name}</td>
+                        <td data-label="Ind. Gold" class="desktop-cell px-6 py-4 text-center">${institute.individual[0]}</td>
+                        <td data-label="Ind. Silver" class="desktop-cell px-6 py-4 text-center">${institute.individual[1]}</td>
+                        <td data-label="Ind. Bronze" class="desktop-cell px-6 py-4 text-center">${institute.individual[2]}</td>
+                        <td data-label="Group Gold" class="desktop-cell px-6 py-4 text-center">${institute.group[0]}</td>
+                        <td data-label="Group Silver" class="desktop-cell px-6 py-4 text-center">${institute.group[1]}</td>
+                        <td data-label="Group Bronze" class="desktop-cell px-6 py-4 text-center">${institute.group[2]}</td>
+                        <td data-label="Total" class="${totalClass} px-6 py-4 text-center text-white">${institute.total}</td>
+                    </tr>
+                `;
+            });
+            leaderboardBody.innerHTML = html;
+            
+            // ** Update the old data state for the next render **
+            oldLeaderboardData = JSON.parse(JSON.stringify(leaderboard)); // Deep copy
+        }
+
+        /**
+         * Initializes the Supabase client and subscribes to real-time updates.
+         */
+        async function initializeRealtime() {
+            try {
+                // 1. Get public config from our backend
+                const configResponse = await fetch(`${API_BASE_URL}/api/config`);
+                const { supabaseUrl, supabaseAnonKey } = await configResponse.json();
+
+                // 2. Initialize Supabase client
+                supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+                // 3. Subscribe to the 'results' table
+                supabase
+                    .channel('results-changes')
+                    .on(
+                        'postgres_changes',
+                        { event: 'INSERT', schema: 'public', table: 'results' },
+                        (payload) => {
+                            console.log('New result detected!', payload);
+                            // When a new result is inserted, re-fetch the *entire*
+                            // calculated leaderboard from our backend.
+                            fetchAndRenderLeaderboard();
+                        }
+                    )
+                    .subscribe((status, err) => {
+                        if (status === 'SUBSCRIBED') {
+                            console.log('Successfully subscribed to real-time updates!');
+                            liveIndicator.style.display = 'flex'; // Show the "LIVE" indicator
+                        }
+                        if (err) {
+                            console.error('Real-time subscription error:', err);
+                            liveIndicator.style.display = 'none';
+                        }
+                    });
+
+            } catch (error) {
+                console.error('Failed to initialize real-time connection:', error);
+            }
+        }
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAndRenderLeaderboard(); // Load data on first page visit
+            initializeRealtime();      // Connect to live updates
+        });
+    </script>
+</body>
+</html>
+
